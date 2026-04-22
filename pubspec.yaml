@@ -10,7 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # WebView for YouTube / Vimeo / Dailymotion / Facebook / Instagram embeds
+  # YouTube native player for background playback with lock screen controls
+  youtube_player_flutter: ^9.0.0
+
+  # WebView for Vimeo / Dailymotion / Facebook / Instagram embeds
   webview_flutter: ^4.7.0
   webview_flutter_android: ^3.16.0
 
