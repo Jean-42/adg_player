@@ -19,16 +19,18 @@ class UrlParser {
     final id = extractYouTubeId(input.trim());
     if (id == null) return null;
     final isShort = input.contains('/shorts/');
-    // MUST use youtube-nocookie.com — regular youtube.com embed gives Error 152/153
-    // in WebView because it detects the non-browser environment
-    const params = 'autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3';
+    
+    // Build a direct stream URL using invidious API (open source, privacy-friendly)
+    // This returns audio stream that works in background
+    const streamUrl = 'https://invidious.jotaku.moe/api/v1/videos';
+    
     return QueueItem(
       id:              'yt_$id',
       type:            MediaType.youtube,
       url:             isShort
           ? 'https://www.youtube.com/shorts/$id'
           : 'https://www.youtube.com/watch?v=$id',
-      embedUrl:        'https://www.youtube-nocookie.com/embed/$id?$params',
+      embedUrl:        '$streamUrl/$id?fields=formatStreams', // Used to fetch audio stream
       title:           isShort ? 'YouTube Short' : 'YouTube Video',
       subtitle:        'YouTube',
       isPortraitVideo: isShort,
@@ -112,7 +114,7 @@ class UrlParser {
     );
   }
 
-  // ── Direct URL ─────────────────────────────────────────────────────
+  // ── Direct URL ──────────────────────────────���──────────────────────
   static QueueItem? buildDirect(String input) {
     input = input.trim();
     if (!input.startsWith('http://') && !input.startsWith('https://')) return null;

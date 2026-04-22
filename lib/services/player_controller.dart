@@ -6,6 +6,7 @@ import '../models/queue_item.dart';
 import '../models/radio_station.dart';
 import 'audio_handler.dart';
 
+
 enum PlayerRepeatMode { none, one, all }
 
 class PlayerController extends ChangeNotifier {
@@ -210,37 +211,33 @@ class PlayerController extends ChangeNotifier {
   /// Play a queue item. For native audio/radio, starts the audio handler.
   /// For embed types (YouTube etc.), just updates index — WebView handles it.
   Future<void> playItem(int index) async {
-    if (index < 0 || index >= queue.length) return;
+  if (index < 0 || index >= queue.length) return;
 
-    // Save position of previous item before switching
-    if (_queueIndex >= 0 && _queueIndex < queue.length) {
-      _saveCurrentPosition(audioHandler.position);
-    }
-
-    _queueIndex = index;
-    currentRadio = null;
-    _saveQueue();
-    notifyListeners();
-
-    final item = queue[index];
-
-    // For native audio/video — load into audio handler (plays + shows notification)
-    if (item.type == MediaType.direct || item.type == MediaType.local) {
-      final resume = getSavedPosition(item.id);
-      await audioHandler.loadTrack(
-        url:           item.url,
-        title:         item.title,
-        artist:        item.subtitle,
-        startPosition: resume ?? Duration.zero,
-      );
-    } else {
-      // For embed types (YouTube etc.) — the WebView creates its own media
-      // session automatically when video plays, which shows the lock screen
-      // notification with thumbnail, title, and controls natively.
-      // We just stop any native audio that was playing before.
-      await audioHandler.stop();
-    }
+  if (_queueIndex >= 0 && _queueIndex < queue.length) {
+    _saveCurrentPosition(audioHandler.position);
   }
+
+  _queueIndex = index;
+  currentRadio = null;
+  _saveQueue();
+  notifyListeners();
+
+  final item = queue[index];
+
+  // For native audio/video — load into audio handler (plays + shows notification)
+  if (item.type == MediaType.direct || item.type == MediaType.local) {
+    final resume = getSavedPosition(item.id);
+    await audioHandler.loadTrack(
+      url: item.url,
+      title: item.title,
+      artist: item.subtitle,
+      startPosition: resume ?? Duration.zero,
+    );
+  } else {
+    // For embed types (YouTube etc.) — stop native audio, WebView handles it
+    await audioHandler.stop();
+  }
+}
 
   void onNativeEnded() {
     _saveCurrentPosition(Duration.zero);
@@ -281,7 +278,8 @@ class PlayerController extends ChangeNotifier {
         milliseconds: (audioDuration.inMilliseconds * fraction).round());
     await audioHandler.seek(target);
   }
-
+  
+  
   // ── Radio ──────────────────────────────────────────────────────────
 
   Future<void> playRadio(RadioStation station) async {
@@ -296,6 +294,15 @@ class PlayerController extends ChangeNotifier {
       url:    station.streamUrl,
       title:  station.name,
       artist: '${station.country} · Radio',
+    );
+  }
+  
+    /// Show notification for embed types (YouTube, Vimeo, etc.)
+  /// Used when playing videos that can't maintain background audio
+  Future<void> showEmbedNotification(String title, String subtitle) async {
+    await audioHandler.showEmbedNotification(
+      title: title,
+      artist: subtitle,
     );
   }
 
@@ -313,8 +320,10 @@ class PlayerController extends ChangeNotifier {
   }
 
   @override
-  void dispose() {
-    audioHandler.stop();
-    super.dispose();
-  }
+void dispose() {
+  // DO NOT call audioHandler.stop() here!
+  // The background service should keep running
+  // Only stop if user explicitly stops it
+  super.dispose();
+}
 }

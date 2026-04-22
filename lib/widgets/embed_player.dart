@@ -4,6 +4,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../models/queue_item.dart';
 import '../theme.dart';
+import 'youtube_player_widget.dart';
 
 class EmbedPlayer extends StatefulWidget {
   final QueueItem? item;
@@ -21,50 +22,51 @@ class _EmbedPlayerState extends State<EmbedPlayer> {
   @override
   void initState() {
     super.initState();
-    if (widget.item != null) _load(widget.item!);
+    if (widget.item != null && widget.item!.type != MediaType.youtube) {
+      _load(widget.item!);
+    }
   }
 
   @override
   void didUpdateWidget(EmbedPlayer old) {
     super.didUpdateWidget(old);
     final item = widget.item;
-    if (item == null) { setState(() => _loadedItemId = null); return; }
+    if (item == null) {
+      setState(() => _loadedItemId = null);
+      return;
+    }
+    // YouTube videos are handled by YoutubePlayerWidget
+    if (item.type == MediaType.youtube) {
+      setState(() => _loadedItemId = null);
+      return;
+    }
     if (item.id != _loadedItemId) _load(item);
   }
 
   void _load(QueueItem item) {
     _loadedItemId = item.id;
 
-    // baseUrl MUST match the embed domain so the iframe sees the right origin.
-    // For YouTube: use youtube-nocookie.com to avoid Error 152/153.
     String baseUrl;
     String userAgent;
     switch (item.type) {
-      case MediaType.youtube:
-        // nocookie embed + nocookie baseUrl = no Error 152/153
-        baseUrl   = 'https://www.youtube-nocookie.com/';
-        userAgent = 'Mozilla/5.0 (Linux; Android 13; Pixel 7) '
-            'AppleWebKit/537.36 (KHTML, like Gecko) '
-            'Chrome/124.0.0.0 Mobile Safari/537.36';
-        break;
       case MediaType.vimeo:
-        baseUrl   = 'https://player.vimeo.com/';
+        baseUrl = 'https://player.vimeo.com/';
         userAgent = '';
         break;
       case MediaType.dailymotion:
-        baseUrl   = 'https://geo.dailymotion.com/';
+        baseUrl = 'https://geo.dailymotion.com/';
         userAgent = '';
         break;
       case MediaType.facebook:
-        baseUrl   = 'https://www.facebook.com/';
+        baseUrl = 'https://www.facebook.com/';
         userAgent = '';
         break;
       case MediaType.instagram:
-        baseUrl   = 'https://www.instagram.com/';
+        baseUrl = 'https://www.instagram.com/';
         userAgent = '';
         break;
       default:
-        baseUrl   = 'https://www.youtube.com/';
+        baseUrl = 'https://www.youtube.com/';
         userAgent = '';
     }
 
@@ -74,29 +76,33 @@ class _EmbedPlayerState extends State<EmbedPlayer> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
       ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (_) { if (mounted) setState(() => _loading = true); },
-        onPageFinished: (_) { if (mounted) setState(() => _loading = false); },
-        onWebResourceError: (_) { if (mounted) setState(() => _loading = false); },
+        onPageStarted: (_) {
+          if (mounted) setState(() => _loading = true);
+        },
+        onPageFinished: (_) {
+          if (mounted) setState(() => _loading = false);
+        },
+        onWebResourceError: (_) {
+          if (mounted) setState(() => _loading = false);
+        },
         onNavigationRequest: (_) => NavigationDecision.navigate,
       ))
       ..loadHtmlString(html, baseUrl: baseUrl);
 
-    // Android specific settings
     final platform = ctrl.platform;
     if (platform is AndroidWebViewController) {
       platform.setMediaPlaybackRequiresUserGesture(false);
-      // Allow WebView to register its own media session with Android —
-      // this is what makes the YouTube lock screen notification appear
-      // with thumbnail, title, progress bar and pause button.
       AndroidWebViewController.enableDebugging(false);
     }
 
-    // Set user agent to look like a real mobile Chrome browser
     if (userAgent.isNotEmpty) {
       ctrl.setUserAgent(userAgent);
     }
 
-    if (mounted) setState(() { _ctrl = ctrl; _loading = true; });
+    if (mounted) setState(() {
+      _ctrl = ctrl;
+      _loading = true;
+    });
   }
 
   String _buildHtml(QueueItem item) {
@@ -134,6 +140,19 @@ class _EmbedPlayerState extends State<EmbedPlayer> {
     final item = widget.item;
     if (item == null) return _placeholder();
 
+    // YouTube videos use native player
+    if (item.type == MediaType.youtube) {
+      final id = _extractYoutubeId(item.url);
+      if (id != null) {
+        return YoutubePlayerWidget(
+          videoId: id,
+          title: item.title,
+          subtitle: item.subtitle,
+          fullscreen: widget.fullscreen,
+        );
+      }
+    }
+
     final isFacebook = item.type == MediaType.facebook;
 
     return Stack(children: [
@@ -142,20 +161,22 @@ class _EmbedPlayerState extends State<EmbedPlayer> {
       else
         const ColoredBox(color: Colors.black),
 
-      // Facebook notice bar
       if (isFacebook)
         Positioned(
-          top: 0, left: 0, right: 0,
+          top: 0,
+          left: 0,
+          right: 0,
           child: _FacebookNotice(url: item.url, isReel: item.isPortraitVideo),
         ),
 
-      // Loading spinner
       if (_loading)
         Container(
           color: Colors.black87,
           alignment: Alignment.center,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const SizedBox(width: 28, height: 28,
+            const SizedBox(
+                width: 28,
+                height: 28,
                 child: CircularProgressIndicator(
                     color: AppColors.accent, strokeWidth: 2.5)),
             const SizedBox(height: 10),
@@ -166,15 +187,30 @@ class _EmbedPlayerState extends State<EmbedPlayer> {
     ]);
   }
 
+  String? _extractYoutubeId(String url) {
+    final patterns = [
+      RegExp(
+          r'(?:youtube\.com/(?:watch\?v=|shorts/|embed/)|youtu\.be/)([a-zA-Z0-9_-]{11})'),
+      RegExp(r'^([a-zA-Z0-9_-]{11})$'),
+    ];
+    for (final p in patterns) {
+      final m = p.firstMatch(url);
+      if (m != null) return m.group(1);
+    }
+    return null;
+  }
+
   Widget _placeholder() => Container(
     color: AppColors.bg2,
     alignment: Alignment.center,
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Container(width: 60, height: 60,
-        decoration: BoxDecoration(
-            color: AppColors.bg4, borderRadius: BorderRadius.circular(30)),
-        child: const Icon(Icons.play_circle_outline,
-            color: AppColors.accent2, size: 30)),
+      Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+              color: AppColors.bg4, borderRadius: BorderRadius.circular(30)),
+          child: const Icon(Icons.play_circle_outline,
+              color: AppColors.accent2, size: 30)),
       const SizedBox(height: 12),
       const Text('No video loaded',
           style: TextStyle(color: AppColors.text3, fontSize: 13)),
@@ -182,7 +218,6 @@ class _EmbedPlayerState extends State<EmbedPlayer> {
   );
 }
 
-// ── Facebook notice bar ───────────────────────────────────────────────
 class _FacebookNotice extends StatelessWidget {
   final String url;
   final bool isReel;
@@ -199,9 +234,9 @@ class _FacebookNotice extends StatelessWidget {
     child: Row(children: [
       const Icon(Icons.facebook, color: AppColors.blue, size: 14),
       const SizedBox(width: 6),
-      Expanded(child: Text(
-        isReel ? 'Facebook Reel — may need login'
-               : 'Facebook — may need login',
+      Expanded(
+          child: Text(
+        isReel ? 'Facebook Reel — may need login' : 'Facebook — may need login',
         style: const TextStyle(color: AppColors.text2, fontSize: 11),
         overflow: TextOverflow.ellipsis,
       )),
@@ -216,13 +251,15 @@ class _FacebookNotice extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-              color: AppColors.blue,
-              borderRadius: BorderRadius.circular(14)),
+              color: AppColors.blue, borderRadius: BorderRadius.circular(14)),
           child: const Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.open_in_new, color: Colors.white, size: 11),
             SizedBox(width: 4),
-            Text('Open', style: TextStyle(color: Colors.white,
-                fontSize: 11, fontWeight: FontWeight.w600)),
+            Text('Open',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
           ]),
         ),
       ),

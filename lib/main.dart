@@ -91,7 +91,7 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int _tab = 0;
 
   static const _tabs = [
@@ -124,6 +124,39 @@ class _HomeShellState extends State<HomeShell> {
         activeIcon: Icon(Icons.settings),
         label: 'Settings'),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+        debugPrint('[ADG] App paused, keeping audio service running');
+        break;
+      case AppLifecycleState.resumed:
+        debugPrint('[ADG] App resumed');
+        break;
+      case AppLifecycleState.inactive:
+        debugPrint('[ADG] App inactive');
+        break;
+      case AppLifecycleState.detached:
+        debugPrint('[ADG] App detached');
+        break;
+      case AppLifecycleState.hidden:
+        debugPrint('[ADG] App hidden');
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

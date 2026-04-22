@@ -10,7 +10,7 @@ import '../theme.dart';
 class PlayerSection extends StatelessWidget {
   const PlayerSection({super.key});
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final ctrl       = context.watch<PlayerController>();
     final cur        = ctrl.current;
@@ -55,6 +55,8 @@ class PlayerSection extends StatelessWidget {
     if (cur == null) return _RadioVisual(name: ctrl.currentRadio!.name);
     switch (cur.type) {
       case MediaType.youtube:
+        // YouTube: Show simple info, audio plays in background via audio_service
+        return _YouTubeAudioVisual(title: cur.title, subtitle: cur.subtitle);
       case MediaType.vimeo:
       case MediaType.dailymotion:
       case MediaType.facebook:
@@ -258,6 +260,61 @@ class _RadioVisual extends StatelessWidget {
       const SizedBox(height: 6),
       const Text('Live Radio',
           style: TextStyle(color: AppColors.green, fontSize: 11)),
+    ]),
+  );
+}
+
+// ── YouTube Audio Visual ─────────────────────────────────────────────
+class _YouTubeAudioVisual extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  const _YouTubeAudioVisual({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    color: AppColors.bg1,
+    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Container(
+        width: 80, height: 80,
+        decoration: BoxDecoration(
+          color: AppColors.bg4,
+          borderRadius: BorderRadius.circular(40),
+        ),
+        child: const Icon(Icons.play_circle, color: Color(0xFFFF0000), size: 48),
+      ),
+      const SizedBox(height: 16),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.text1,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        subtitle,
+        style: const TextStyle(
+          color: AppColors.green,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      const SizedBox(height: 16),
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: Text(
+          'Playing audio in background...',
+          style: TextStyle(color: AppColors.text3, fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
+      ),
     ]),
   );
 }
