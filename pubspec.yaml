@@ -1,0 +1,55 @@
+name: adg_media_player
+description: ADG Media Player - YouTube, Vimeo, Radio & more
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # WebView for YouTube / Vimeo / Dailymotion / Facebook / Instagram embeds
+  webview_flutter: ^4.7.0
+  webview_flutter_android: ^3.16.0
+
+  # Video player for direct URL / local files
+  video_player: ^2.8.6
+  chewie: ^1.8.3
+
+  # Audio / Radio streaming
+  just_audio: ^0.9.38
+  audio_session: ^0.1.21
+
+  # Media notification, background audio, lock screen controls
+  audio_service: ^0.18.15
+
+  # File picker for local media
+  file_picker: ^8.0.7
+
+  # HTTP for radio-browser API
+  http: ^1.2.2
+
+  # Persistent state
+  shared_preferences: ^2.3.2
+
+  # State management
+  provider: ^6.1.2
+
+  # URL launcher
+  url_launcher: ^6.3.0
+
+  # Icons
+  flutter_svg: ^2.0.10+1
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
