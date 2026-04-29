@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/player_controller.dart';
 import '../models/queue_item.dart';
+import '../models/tv_channel.dart';
 import '../theme.dart';
 import 'platform_icon.dart';
 
@@ -13,16 +14,19 @@ class MiniControls extends StatelessWidget {
     final ctrl  = context.watch<PlayerController>();
     final cur   = ctrl.current;
     final radio = ctrl.currentRadio;
+    final tv    = ctrl.currentTv;
 
-    final isActive = cur != null || radio != null;
+    final isActive = cur != null || radio != null || tv != null;
     final isEmbed  = cur?.isEmbed ?? false;
     final isAudio  = !isEmbed && (cur?.type == MediaType.direct ||
                                    cur?.type == MediaType.local ||
                                    radio != null);
 
-    final title    = cur?.title ?? radio?.name ?? 'No media loaded';
-    final subtitle = cur?.subtitle ??
-        (radio != null ? '${radio.country} · Radio' : 'ADG Media Player');
+    final title    = tv?.name ?? cur?.title ?? radio?.name ?? 'No media loaded';
+    final subtitle = tv != null
+        ? '${tv.countryCode} · Live TV'
+        : cur?.subtitle ??
+          (radio != null ? '${radio.country} · Radio' : 'ADG Media Player');
 
     final progress = (isAudio && ctrl.audioDuration.inMilliseconds > 0)
         ? (ctrl.audioPosition.inMilliseconds /

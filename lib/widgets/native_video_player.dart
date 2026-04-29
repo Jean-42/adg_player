@@ -8,11 +8,13 @@ import '../theme.dart';
 class NativeVideoPlayer extends StatefulWidget {
   final String url;
   final bool isLocal;
+  final bool isLiveStream;
 
   const NativeVideoPlayer({
     super.key,
     required this.url,
     this.isLocal = false,
+    this.isLiveStream = false,
   });
 
   @override
@@ -53,12 +55,15 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
         videoPlayerController: vpc,
         autoPlay: true,
         looping: false,
+        isLive: widget.isLiveStream,
         allowFullScreen: true,
+        showControlsOnInitialize: true,
+        allowedScreenSleep: false,
         materialProgressColors: ChewieProgressColors(
-          playedColor:  AppColors.accent,
-          handleColor:  AppColors.accent2,
+          playedColor:     AppColors.accent,
+          handleColor:     AppColors.accent2,
           backgroundColor: AppColors.bg4,
-          bufferedColor: AppColors.bg3,
+          bufferedColor:   AppColors.bg3,
         ),
         placeholder: Container(color: Colors.black),
         errorBuilder: (ctx, msg) => Center(

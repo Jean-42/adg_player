@@ -9,6 +9,7 @@ import 'screens/player_screen.dart';
 import 'screens/add_tab.dart';
 import 'screens/queue_tab.dart';
 import 'screens/radio_tab.dart';
+import 'screens/tv_tab.dart';
 import 'screens/download_tab.dart';
 import 'screens/settings_tab.dart';
 import 'widgets/mini_controls.dart';
@@ -78,11 +79,7 @@ class AdgPlayerApp extends StatelessWidget {
 class _RootNavigator extends StatelessWidget {
   const _RootNavigator();
   @override
-  Widget build(BuildContext context) {
-    final isFullscreen = context.watch<PlayerController>().isFullscreen;
-    if (isFullscreen) return const FullscreenPlayer();
-    return const HomeShell();
-  }
+  Widget build(BuildContext context) => const HomeShell();
 }
 
 class HomeShell extends StatefulWidget {
@@ -99,6 +96,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     QueueTab(),
     DownloadTab(),
     RadioTab(),
+    TvTab(),
     SettingsTab(),
   ];
 
@@ -119,6 +117,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         icon: Icon(Icons.radio_outlined),
         activeIcon: Icon(Icons.radio),
         label: 'Radio'),
+    BottomNavigationBarItem(
+        icon: Icon(Icons.live_tv_outlined),
+        activeIcon: Icon(Icons.live_tv),
+        label: 'TV'),
     BottomNavigationBarItem(
         icon: Icon(Icons.settings_outlined),
         activeIcon: Icon(Icons.settings),

@@ -4,6 +4,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/queue_item.dart';
 import '../models/radio_station.dart';
+import '../models/tv_channel.dart';
 import 'audio_handler.dart';
 
 
@@ -23,10 +24,13 @@ class PlayerController extends ChangeNotifier {
 
   // ── Settings ───────────────────────────────────────────────────────
   bool autoplayNext = true;
-  bool isFullscreen = false;
+  bool isFullscreen = false; // kept for API compatibility, no longer used
 
   // ── Radio ──────────────────────────────────────────────────────────
   RadioStation? currentRadio;
+
+  // ── TV ────────────────────────────────────────────────────────────
+  TvChannel? currentTv;
 
   // ── Saved position (for resume) ────────────────────────────────────
   // key: queue item id → saved position in milliseconds
@@ -145,11 +149,21 @@ class PlayerController extends ChangeNotifier {
 
   // ── Saved position helpers ─────────────────────────────────────────
 
-  /// Returns the saved resume position for an item (null if none / < 5s)
+  /// Returns the saved resume position for an item (null if none / < 5s).
   Duration? getSavedPosition(String itemId) {
     final ms = _savedPositions[itemId];
-    if (ms == null || ms < 5000) return null; // ignore tiny positions
+    if (ms == null || ms < 5000) return null;
     return Duration(milliseconds: ms);
+  }
+
+  /// Called by embed players (YouTube WebView, etc.) to report current
+  /// playback position so it can be saved and restored across fullscreen
+  /// transitions and app restarts.
+  void reportEmbedPosition(String itemId, Duration position) {
+    if (position.inSeconds < 5) return; // ignore near-start
+    _savedPositions[itemId] = position.inMilliseconds;
+    // Persist every ~5s — callers should throttle their reports
+    _persistPositions();
   }
 
   void clearSavedPosition(String itemId) {
@@ -186,6 +200,7 @@ class PlayerController extends ChangeNotifier {
     _savedPositions.clear();
     audioHandler.stop();
     currentRadio = null;
+    currentTv    = null;
     _saveQueue();
     _persistPositions();
     notifyListeners();
@@ -219,6 +234,7 @@ class PlayerController extends ChangeNotifier {
 
   _queueIndex = index;
   currentRadio = null;
+  currentTv    = null;
   _saveQueue();
   notifyListeners();
 
@@ -283,18 +299,27 @@ class PlayerController extends ChangeNotifier {
   // ── Radio ──────────────────────────────────────────────────────────
 
   Future<void> playRadio(RadioStation station) async {
-    // Save position of previous item
     if (_queueIndex >= 0) _saveCurrentPosition(audioHandler.position);
-
     currentRadio = station;
-    _queueIndex = -1;
+    currentTv    = null;
+    _queueIndex  = -1;
     notifyListeners();
-
     await audioHandler.loadTrack(
       url:    station.streamUrl,
       title:  station.name,
       artist: '${station.country} · Radio',
     );
+  }
+
+  /// Play a live TV channel — streams via NativeVideoPlayer (HLS/direct).
+  void playTv(TvChannel channel) {
+    if (_queueIndex >= 0) _saveCurrentPosition(audioHandler.position);
+    currentTv    = channel;
+    currentRadio = null;
+    _queueIndex  = -1;
+    notifyListeners();
+    // TV streams are played by the player section via currentTv,
+    // no audio handler needed (video handles its own audio).
   }
   
     /// Show notification for embed types (YouTube, Vimeo, etc.)
@@ -307,9 +332,6 @@ class PlayerController extends ChangeNotifier {
   }
 
   // ── Fullscreen ─────────────────────────────────────────────────────
-
-  void enterFullscreen() { isFullscreen = true;  notifyListeners(); }
-  void exitFullscreen()  { isFullscreen = false; notifyListeners(); }
 
   // ── Settings ───────────────────────────────────────────────────────
 

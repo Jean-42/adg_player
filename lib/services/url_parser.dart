@@ -19,18 +19,14 @@ class UrlParser {
     final id = extractYouTubeId(input.trim());
     if (id == null) return null;
     final isShort = input.contains('/shorts/');
-    
-    // Build a direct stream URL using invidious API (open source, privacy-friendly)
-    // This returns audio stream that works in background
     const streamUrl = 'https://invidious.jotaku.moe/api/v1/videos';
-    
     return QueueItem(
       id:              'yt_$id',
       type:            MediaType.youtube,
       url:             isShort
           ? 'https://www.youtube.com/shorts/$id'
           : 'https://www.youtube.com/watch?v=$id',
-      embedUrl:        '$streamUrl/$id?fields=formatStreams', // Used to fetch audio stream
+      embedUrl:        '$streamUrl/$id?fields=formatStreams',
       title:           isShort ? 'YouTube Short' : 'YouTube Video',
       subtitle:        'YouTube',
       isPortraitVideo: isShort,
@@ -75,27 +71,67 @@ class UrlParser {
       id:       'dm_$id',
       type:     MediaType.dailymotion,
       url:      'https://www.dailymotion.com/video/$id',
-      embedUrl: 'https://geo.dailymotion.com/player.html?video=$id&autoplay=1',
+      embedUrl: 'https://geo.dailymotion.com/player.html?video=$id&autoplay=1&api=postMessage',
       title:    'Dailymotion Video',
       subtitle: 'Dailymotion',
     );
   }
 
   // ── Facebook ───────────────────────────────────────────────────────
+  // All Facebook content treated as 9:16 portrait.
+  //
+  // Embed strategy:
+  //   - If a numeric video ID can be extracted → use /video/embed?video_id=<id>
+  //     This gives the full FB player with volume + fullscreen controls.
+  //   - Otherwise (share tokens, fb.watch short links) → fall back to
+  //     plugins/video.php which has limited controls but is the only option.
+  //
   static QueueItem? buildFacebook(String input) {
     input = input.trim();
     if (!input.contains('facebook.com') && !input.contains('fb.watch')) return null;
-    final isReel = input.toLowerCase().contains('reel');
-    final encoded = Uri.encodeComponent(input);
+
+    final videoId = _extractFacebookVideoId(input);
+
+    final embedUrl = videoId != null
+        ? 'https://www.facebook.com/video/embed?video_id=$videoId'
+        : 'https://www.facebook.com/plugins/video.php'
+            '?href=${Uri.encodeComponent(input)}'
+            '&show_text=false&autoplay=true&allowfullscreen=true';
+
     return QueueItem(
       id:              'fb_${input.hashCode}',
       type:            MediaType.facebook,
       url:             input,
-      embedUrl:        'https://www.facebook.com/plugins/video.php?href=$encoded&show_text=false&autoplay=true&allowfullscreen=true',
-      title:           isReel ? 'Facebook Reel' : 'Facebook Video',
+      embedUrl:        embedUrl,
+      title:           'Facebook Video',
       subtitle:        'Facebook',
-      isPortraitVideo: isReel,
+      isPortraitVideo: true,
     );
+  }
+
+  /// Extract numeric video ID from any Facebook URL pattern.
+  /// Returns null if no numeric ID can be found.
+  static String? _extractFacebookVideoId(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+
+    // ?v=123456789  or  ?video_id=123456789
+    final v = uri.queryParameters['v'] ?? uri.queryParameters['video_id'];
+    if (v != null && RegExp(r'^\d+$').hasMatch(v)) return v;
+
+    // Path patterns:
+    //   /watch/         — handled by ?v= above
+    //   /video.php      — handled by ?v= above
+    //   /videos/<id>
+    //   /reel/<id>
+    //   /reels/<id>
+    //   /username/videos/<title>/<id>   ← last numeric segment
+    final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    for (final seg in segments.reversed) {
+      if (RegExp(r'^\d{8,}$').hasMatch(seg)) return seg;
+    }
+
+    return null;
   }
 
   // ── Instagram ──────────────────────────────────────────────────────
@@ -114,7 +150,7 @@ class UrlParser {
     );
   }
 
-  // ── Direct URL ──────────────────────────────���──────────────────────
+  // ── Direct URL ─────────────────────────────────────────────────────
   static QueueItem? buildDirect(String input) {
     input = input.trim();
     if (!input.startsWith('http://') && !input.startsWith('https://')) return null;
